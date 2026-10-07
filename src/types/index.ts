@@ -98,6 +98,8 @@ export interface DocumentInfo {
   pageCount: number
   thumbnail?: string
   size: number
+  description?: string
+  tags?: string[]
   createdAt: string
   updatedAt: string
 }

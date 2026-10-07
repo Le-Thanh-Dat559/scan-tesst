@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDocumentStore, useUIStore } from '@/stores'
 import { formatDate, downloadBlob } from '@/utils/helpers'
@@ -12,17 +12,57 @@ import {
 import ConfirmDialog from '@/components/ui/ConfirmDialog'
 import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/utils/helpers'
+import { documentsApi } from '@/services/api'
 
 export default function DocumentsPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { documents, removeDocument } = useDocumentStore()
+  const { documents, removeDocument, loadDocuments } = useDocumentStore()
   const { showProcessing, hideProcessing } = useUIStore()
+
+  // Load documents từ MongoDB khi mount
+  useEffect(() => {
+    loadDocuments()
+  }, [loadDocuments])
 
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'scan' | 'ocr'>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  // Cache thumbnail blob URLs cho mỗi document (page 1)
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchThumbs = async () => {
+      const newUrls: Record<string, string> = {}
+      for (const doc of documents) {
+        const key = `${doc.id}-1`
+        if (thumbUrls[key]) continue
+        try {
+          const url = await documentsApi.fetchImageBlob(doc.id, 1)
+          newUrls[key] = url
+        } catch {
+          // ignore - sẽ hiển thị icon mặc định
+        }
+      }
+      if (!cancelled && Object.keys(newUrls).length > 0) {
+        setThumbUrls(prev => ({ ...prev, ...newUrls }))
+      }
+    }
+    if (documents.length > 0) fetchThumbs()
+    return () => { cancelled = true }
+    // eslint-disable-next-line
+  }, [documents])
+
+  // Cleanup object URLs khi unmount
+  useEffect(() => {
+    return () => {
+      Object.values(thumbUrls).forEach(url => URL.revokeObjectURL(url))
+    }
+    // eslint-disable-next-line
+  }, [])
 
   const filteredDocs = documents.filter(doc => {
     const matchesSearch = doc.name.toLowerCase().includes(search.toLowerCase())
@@ -30,19 +70,33 @@ export default function DocumentsPage() {
     return matchesSearch && matchesFilter
   })
 
-  const handleDelete = () => {
-    if (deleteId) {
-      removeDocument(deleteId)
+  const handleDelete = async () => {
+    if (!deleteId) return
+    try {
+      await removeDocument(deleteId)
       toast({ type: 'success', title: 'Thành công', description: 'Đã xóa tài liệu.' })
-      setDeleteId(null)
+    } catch (err: any) {
+      toast({ type: 'error', title: 'Lỗi', description: err?.message || 'Không thể xóa.' })
     }
+    setDeleteId(null)
   }
 
   const handleQuickDownloadPdf = async (e: React.MouseEvent, doc: any) => {
     e.stopPropagation()
-    showProcessing('Đang chuẩn bị file PDF...')
+    showProcessing('Đang tải ảnh từ server và tạo PDF...')
     try {
-      const pdfBytes = await pdfService.createPdfFromPages(doc.pages, {
+      // Lấy ảnh từ MongoDB cho tất cả các trang
+      const pagesWithImages = await Promise.all(
+        doc.pages.map(async (p: any) => {
+          try {
+            const url = await documentsApi.fetchImageBlob(doc.id, p.pageNumber)
+            return { ...p, originalImage: await blobUrlToDataUrl(url) }
+          } catch {
+            return { ...p, originalImage: '' }
+          }
+        })
+      )
+      const pdfBytes = await pdfService.createPdfFromPages(pagesWithImages, {
         pageSize: 'a4',
         orientation: 'portrait',
         margin: 20,
@@ -58,6 +112,17 @@ export default function DocumentsPage() {
     } finally {
       hideProcessing()
     }
+  }
+
+  async function blobUrlToDataUrl(blobUrl: string): Promise<string> {
+    const response = await fetch(blobUrl)
+    const blob = await response.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
   }
 
   return (
@@ -181,7 +246,9 @@ export default function DocumentsPage() {
       {filteredDocs.length > 0 ? (
         viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 pb-6">
-            {filteredDocs.map(doc => (
+            {filteredDocs.map(doc => {
+              const thumb = thumbUrls[`${doc.id}-1`]
+              return (
               <div
                 key={doc.id}
                 className="group flex flex-col rounded-2xl bg-[var(--bg-card)] border border-[var(--border-secondary)] hover:border-primary-500/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden"
@@ -189,9 +256,9 @@ export default function DocumentsPage() {
               >
                 {/* Thumbnail Container */}
                 <div className="aspect-[3/4] bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--bg-secondary)] relative overflow-hidden flex items-center justify-center p-2.5">
-                  {doc.thumbnail ? (
+                  {thumb ? (
                     <img
-                      src={doc.thumbnail}
+                      src={thumb}
                       alt={doc.name}
                       className="max-w-full max-h-full object-contain rounded-lg shadow-sm group-hover:scale-105 transition-transform duration-300"
                     />
@@ -243,20 +310,23 @@ export default function DocumentsPage() {
                   </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         ) : (
           // List view
           <div className="space-y-2 pb-6">
-            {filteredDocs.map(doc => (
+            {filteredDocs.map(doc => {
+              const thumb = thumbUrls[`${doc.id}-1`]
+              return (
               <div
                 key={doc.id}
                 className="group flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-secondary)] hover:border-primary-500/40 hover:shadow-md transition-all cursor-pointer"
                 onClick={() => navigate(`/documents/${doc.id}`)}
               >
                 <div className="w-12 h-16 sm:w-14 sm:h-20 bg-[var(--bg-tertiary)] rounded-lg overflow-hidden shrink-0 flex items-center justify-center border border-[var(--border-secondary)]">
-                  {doc.thumbnail ? (
-                    <img src={doc.thumbnail} alt={doc.name} className="w-full h-full object-cover" />
+                  {thumb ? (
+                    <img src={thumb} alt={doc.name} className="w-full h-full object-cover" />
                   ) : (
                     <FileText className="w-5 h-5 text-[var(--text-tertiary)]" />
                   )}
@@ -296,7 +366,8 @@ export default function DocumentsPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )
       ) : (

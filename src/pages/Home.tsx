@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDocumentStore } from '@/stores'
 import { formatDate } from '@/utils/helpers'
+import { documentsApi } from '@/services/api'
 import {
   ScanLine, Image as ImageIcon, FileText, Languages,
   FileStack, ArrowRight, Zap, FolderOpen,
@@ -11,9 +13,45 @@ import { cn } from '@/utils/helpers'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { documents, stats } = useDocumentStore()
+  const { documents, stats, loadDocuments } = useDocumentStore()
+
+  useEffect(() => {
+    loadDocuments()
+  }, [loadDocuments])
 
   const recentDocs = documents.slice(0, 4)
+
+  // Fetch thumbnails cho recent docs
+  const [thumbs, setThumbs] = useState<Record<string, string>>({})
+  useEffect(() => {
+    let cancelled = false
+    const fetchThumbs = async () => {
+      const next: Record<string, string> = {}
+      for (const doc of recentDocs) {
+        if (thumbs[doc.id]) continue
+        try {
+          const url = await documentsApi.fetchImageBlob(doc.id, 1)
+          next[doc.id] = url
+        } catch {
+          // ignore
+        }
+      }
+      if (!cancelled && Object.keys(next).length > 0) {
+        setThumbs(prev => ({ ...prev, ...next }))
+      }
+    }
+    if (recentDocs.length > 0) fetchThumbs()
+    return () => { cancelled = true }
+    // eslint-disable-next-line
+  }, [documents])
+
+  // Cleanup blob URLs
+  useEffect(() => {
+    return () => {
+      Object.values(thumbs).forEach(url => URL.revokeObjectURL(url))
+    }
+    // eslint-disable-next-line
+  }, [])
 
   return (
     <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-5 lg:px-8 py-5 sm:py-6 lg:py-8 space-y-6 sm:space-y-8 font-sans">
@@ -166,16 +204,18 @@ export default function Home() {
 
           {recentDocs.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              {recentDocs.map(doc => (
+              {recentDocs.map(doc => {
+                const thumb = thumbs[doc.id]
+                return (
                 <div
                   key={doc.id}
                   className="group flex flex-col rounded-xl sm:rounded-2xl bg-[var(--bg-card)] border border-[var(--border-secondary)] hover:border-primary-500/40 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden"
                   onClick={() => navigate(`/documents/${doc.id}`)}
                 >
                   <div className="aspect-[4/3] bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--bg-secondary)] relative overflow-hidden p-3 flex items-center justify-center">
-                    {doc.thumbnail ? (
+                    {thumb ? (
                       <img
-                        src={doc.thumbnail}
+                        src={thumb}
                         alt={doc.name}
                         className="max-w-full max-h-full object-contain rounded-lg shadow-sm group-hover:scale-105 transition-transform duration-300"
                       />
@@ -199,7 +239,8 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )
+            })}
             </div>
           ) : (
             <div className="text-center py-10 px-4 rounded-2xl bg-[var(--bg-card)] border border-dashed border-[var(--border-primary)]">

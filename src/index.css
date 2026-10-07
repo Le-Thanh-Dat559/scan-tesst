@@ -27,13 +27,19 @@
   --color-primary-500: #3b82f6;
   --color-primary-600: #2563eb;
   --color-primary-700: #1d4ed8;
-
-  /* Status colors (used sparingly) */
-  --color-success-500: #10b981;
-  --color-warning-500: #f59e0b;
-  --color-error-500: #ef4444;
-  --color-info-500: #06b6d4;
+  --color-primary-800: #1e3a8a;
+  --color-accent-400: #60a5fa;
   --color-accent-500: #3b82f6;
+
+  /* Status colors */
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-info-500: #06b6d4;
+  --color-info-600: #0891b2;
 }
 
 /* ============================================
@@ -45,6 +51,7 @@
   --bg-secondary: #f1f5f9;
   --bg-tertiary: #e2e8f0;
   --bg-card: #ffffff;
+  --bg-sidebar: #ffffff;
 
   --text-primary: #0f172a;
   --text-secondary: #475569;
@@ -59,6 +66,7 @@
   --bg-secondary: #111827;
   --bg-tertiary: #1a2233;
   --bg-card: #131a2a;
+  --bg-sidebar: #0f1626;
 
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
@@ -337,4 +345,146 @@ html {
 ::selection {
   background: rgba(59, 130, 246, 0.3);
   color: inherit;
+}
+
+/* ============================================
+   ADDITIONAL UTILITIES
+   ============================================ */
+
+/* Hide scrollbar (used in nav, thumbnails) */
+.hidden-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hidden-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Page container - common max-width & padding */
+.page-container {
+  width: 100%;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+@media (min-width: 640px) {
+  .page-container {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+}
+@media (min-width: 1024px) {
+  .page-container {
+    padding-left: 2rem;
+    padding-right: 2rem;
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+}
+
+/* Page enter animation */
+@keyframes page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-enter {
+  animation: page-enter 0.35s ease-out;
+}
+
+/* Section title (used in Home, etc.) */
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+@media (min-width: 640px) {
+  .section-title {
+    font-size: 1.05rem;
+  }
+}
+
+/* Warm gradient text (used in Home hero, Scan) */
+.text-gradient-warm {
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+:root.dark .text-gradient-warm {
+  background: linear-gradient(135deg, #fbbf24 0%, #f87171 50%, #f472b6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Half-size utilities for non-standard Tailwind sizes (e.g. w-4.5) */
+.w-4\.5 { width: 1.125rem; }
+.h-4\.5 { height: 1.125rem; }
+.w-5\.5 { width: 1.375rem; }
+.h-5\.5 { height: 1.375rem; }
+
+/* Toast container - fixed at top-right */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.toast-container > * {
+  pointer-events: auto;
+}
+
+/* Slide-left animation (for toast) */
+@keyframes slide-left {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.animate-slide-left {
+  animation: slide-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Upload zone styles */
+.upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  border: 2px dashed var(--border-secondary);
+  border-radius: 1rem;
+  background: var(--bg-card);
+  transition: all 0.2s ease;
+}
+.upload-zone:hover {
+  border-color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+}
+.upload-zone.dragover {
+  border-color: var(--color-primary-500, #3b82f6);
+  background: rgba(59, 130, 246, 0.05);
+  transform: scale(1.01);
 }

@@ -7,7 +7,7 @@ import {
   Zap, Shield, CheckCircle2,
   ScanLine, Languages, FileStack, Star
 } from 'lucide-react'
-import axios from 'axios'
+import { authApi } from '@/services/api'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -45,10 +45,9 @@ export default function Login() {
     setIsLoading(true)
 
     try {
-      const response = await axios.post('/api/auth/login', { email, password })
-      const { user, token } = response.data
+      const { user } = await authApi.login({ email, password })
+      // Token đã được lưu vào localStorage bởi authApi.login()
 
-      localStorage.setItem('token', token)
       if (rememberMe) localStorage.setItem('rememberEmail', email)
 
       login(user)
@@ -56,7 +55,7 @@ export default function Login() {
       navigate('/')
     } catch (error: any) {
       console.error('Login error:', error)
-      const msg = error.response?.data?.message || 'Đã xảy ra lỗi hệ thống.'
+      const msg = error?.message || 'Đã xảy ra lỗi hệ thống.'
       toast({ type: 'error', title: 'Đăng nhập thất bại', description: msg })
     } finally {
       setIsLoading(false)

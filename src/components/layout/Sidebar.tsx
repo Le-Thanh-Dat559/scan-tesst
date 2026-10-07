@@ -1,6 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { cn } from '@/utils/helpers'
 import { useUIStore, useAuthStore } from '@/stores'
+import { authApi } from '@/services/api'
+import { clearImageCache } from '@/hooks/useDocumentImage'
 import {
   Home,
   ScanLine,
@@ -29,6 +31,14 @@ export default function Sidebar() {
   const location = useLocation()
   const { sidebarOpen, sidebarCollapsed, setMobileMenu, setSidebarCollapsed } = useUIStore()
   const { user, logout } = useAuthStore()
+
+  const handleLogout = () => {
+    authApi.logout()        // Xóa token
+    clearImageCache()       // Xóa cached blob URLs
+    logout()                // Reset Zustand auth
+    // Trỏ về /login (do ProtectedRoute redirect)
+    window.location.href = '/login'
+  }
 
   return (
     <>
@@ -172,7 +182,7 @@ export default function Sidebar() {
                   </div>
                 </div>
                 <button
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-error-500 hover:bg-error-500/10 transition-all shrink-0"
                   title="Đăng xuất"
                 >

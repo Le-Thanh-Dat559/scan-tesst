@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect } from 'react'
-import { useThemeStore, useDocumentStore, useAuthStore } from '@/stores'
+import { useThemeStore, useDocumentStore } from '@/stores'
+import { isAuthenticated } from '@/services/api'
 import { ToastProvider } from '@/components/ui/Toast'
 
 // Layouts
@@ -19,8 +20,8 @@ import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuthStore()
-  if (!isAuthenticated) {
+  // Dùng isAuthenticated từ api.ts (kiểm tra token trong localStorage)
+  if (!isAuthenticated()) {
     return <Navigate to="/login" replace />
   }
   return <>{children}</>
@@ -28,13 +29,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   const { initialize } = useThemeStore()
-  const { updateStats } = useDocumentStore()
+  const { loadDocuments } = useDocumentStore()
 
-  // Initialize theme and update stats on mount
+  // Initialize theme + load documents from MongoDB on mount
   useEffect(() => {
     initialize()
-    updateStats()
-  }, [initialize, updateStats])
+    // Chỉ load khi đã đăng nhập
+    if (isAuthenticated()) {
+      loadDocuments()
+    }
+  }, [initialize, loadDocuments])
 
   return (
     <ToastProvider>

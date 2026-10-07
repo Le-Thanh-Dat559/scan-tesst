@@ -17,10 +17,17 @@ export default function SettingsPage() {
 
   const [showClearData, setShowClearData] = useState(false)
 
-  const handleClearData = () => {
-    documents.forEach(doc => removeDocument(doc.id))
+  const handleClearData = async () => {
+    // Xóa tuần tự trên server
+    try {
+      for (const doc of documents) {
+        await removeDocument(doc.id)
+      }
+      toast({ type: 'success', title: 'Thành công', description: 'Đã xóa tất cả dữ liệu tài liệu.' })
+    } catch (err: any) {
+      toast({ type: 'error', title: 'Lỗi', description: err?.message || 'Không thể xóa hết dữ liệu.' })
+    }
     setShowClearData(false)
-    toast({ type: 'success', title: 'Thành công', description: 'Đã xóa tất cả dữ liệu tài liệu.' })
   }
 
   const handleResetSettings = () => {

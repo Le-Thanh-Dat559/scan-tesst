@@ -7,7 +7,7 @@ import {
   Zap, Shield, CheckCircle2, Check,
   ScanLine, Languages, FileStack, Star
 } from 'lucide-react'
-import axios from 'axios'
+import { authApi } from '@/services/api'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -76,17 +76,15 @@ export default function Register() {
     setIsLoading(true)
 
     try {
-      const response = await axios.post('/api/auth/register', { name, email, password })
-      const { user, token } = response.data
-
-      localStorage.setItem('token', token)
+      const { user } = await authApi.register({ name, email, password })
+      // Token đã được lưu vào localStorage bởi authApi.register()
 
       login(user)
       toast({ type: 'success', title: 'Đăng ký thành công', description: `Chào mừng ${user.name}!` })
       navigate('/')
     } catch (error: any) {
       console.error('Register error:', error)
-      const msg = error.response?.data?.message || 'Đã xảy ra lỗi hệ thống.'
+      const msg = error?.message || 'Đã xảy ra lỗi hệ thống.'
       toast({ type: 'error', title: 'Đăng ký thất bại', description: msg })
     } finally {
       setIsLoading(false)

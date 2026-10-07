@@ -32,7 +32,7 @@ export default function AuthLayout() {
       ref={containerRef}
       className="min-h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] flex relative overflow-hidden font-sans"
       style={{
-        background: 'radial-gradient(ellipse at top, #111b30 0%, #0a0e1a 50%, #060912 100%)',
+        background: 'radial-gradient(ellipse at top, var(--bg-secondary) 0%, var(--bg-primary) 50%, var(--bg-primary) 100%)',
       }}
     >
       {/* ============================================

@@ -4,6 +4,7 @@ import { useScanStore, useUIStore, useDocumentStore } from '@/stores'
 import { fileToCanvas, canvasToDataURL } from '@/utils/imageProcessing'
 import { generateFileName, generateId } from '@/utils/helpers'
 import type { DocumentInfo, ScanPage } from '@/types'
+import type { PagePayload } from '@/services/api'
 
 import UploadZone from '@/components/scan/UploadZone'
 import CameraScanner from '@/components/scan/CameraScanner'
@@ -106,25 +107,50 @@ export default function ScanPage() {
     setEditingPageId(null)
   }
 
-  const handleSaveDocument = () => {
+  const handleSaveDocument = async () => {
     if (pages.length === 0) return
 
-    const doc: DocumentInfo = {
-      id: generateId(),
-      name: generateFileName('Scan', 'pdf').replace('.pdf', ''),
-      type: 'scan',
-      pages: [...pages],
-      pageCount: pages.length,
-      thumbnail: pages[0].processedImage || pages[0].originalImage,
-      size: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
+    const { showProcessing, hideProcessing, updateProgress } = useUIStore.getState()
+    showProcessing(`Đang upload ${pages.length} trang lên server...`)
 
-    addDocument(doc)
-    clearPages()
-    toast({ type: 'success', title: 'Đã lưu', description: 'Tài liệu đã được lưu vào thư viện.' })
-    navigate('/documents')
+    try {
+      const doc: DocumentInfo = {
+        id: generateId(),
+        name: generateFileName('Scan', 'pdf').replace('.pdf', ''),
+        type: 'scan',
+        pages: [...pages],
+        pageCount: pages.length,
+        size: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      // Convert pages to API payload (PagePayload[])
+      const pagesPayload: PagePayload[] = pages.map((p, i) => {
+        updateProgress((i / pages.length) * 100)
+        return {
+          pageNumber: i + 1,
+          width: p.width,
+          height: p.height,
+          // Gửi ảnh đã xử lý (hoặc ảnh gốc nếu chưa xử lý)
+          originalImage: p.processedImage || p.originalImage,
+          filters: p.filters,
+          rotation: p.rotation,
+          ocrText: '',
+          ocrLanguage: 'vie',
+        }
+      })
+
+      await addDocument(doc, pagesPayload)
+      clearPages()
+      toast({ type: 'success', title: 'Đã lưu', description: 'Tài liệu đã được lưu lên MongoDB.' })
+      navigate('/documents')
+    } catch (error: any) {
+      console.error(error)
+      toast({ type: 'error', title: 'Lỗi', description: error?.message || 'Có lỗi xảy ra khi lưu tài liệu.' })
+    } finally {
+      hideProcessing()
+    }
   }
 
   // 1. EMPTY STATE

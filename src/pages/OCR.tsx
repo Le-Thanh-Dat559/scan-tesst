@@ -69,28 +69,39 @@ export default function OCRPage() {
       setText(result.text)
       setStatus('done')
 
-      // Auto save to documents
-      addDocument({
-        id: generateId(),
-        name: generateFileName('OCR', 'txt').replace('.txt', ''),
-        type: 'ocr',
-        pages: [{
+      // Auto save to MongoDB
+      await addDocument(
+        {
           id: generateId(),
+          name: generateFileName('OCR', 'txt').replace('.txt', ''),
+          type: 'ocr',
+          pages: [{
+            id: generateId(),
+            pageNumber: 1,
+            originalImage: image,
+            processedImage: image,
+            width: 800,
+            height: 1000,
+            rotation: 0,
+            filters: defaultFilters,
+            ocrText: result.text,
+          }],
+          pageCount: 1,
+          size: result.text.length,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        [{
           pageNumber: 1,
-          originalImage: image,
-          processedImage: image,
           width: 800,
           height: 1000,
-          rotation: 0,
+          originalImage: image,
           filters: defaultFilters,
+          rotation: 0,
           ocrText: result.text,
-        }],
-        pageCount: 1,
-        thumbnail: image,
-        size: result.text.length,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
+          ocrLanguage: lang,
+        }]
+      )
 
       toast({ type: 'success', title: 'Hoàn tất', description: 'Đã nhận dạng văn bản thành công.' })
 

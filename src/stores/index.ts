@@ -13,6 +13,7 @@ import type {
 } from '@/types'
 import { defaultFilters, defaultSettings } from '@/types'
 import { generateId } from '@/utils/helpers'
+import { documentsApi, isAuthenticated, type DocumentDto, type PagePayload } from '@/services/api'
 
 /* ===== Theme Store ===== */
 interface ThemeStore {
@@ -260,11 +261,52 @@ export const useScanStore = create<ScanState & ScanActions>()((set, get) => ({
 interface DocumentStore {
   documents: DocumentInfo[]
   stats: DashboardStats
-  addDocument: (doc: DocumentInfo) => void
-  removeDocument: (id: string) => void
-  updateDocument: (id: string, updates: Partial<DocumentInfo>) => void
+  isLoading: boolean
+  error: string | null
+
+  // Actions
+  loadDocuments: () => Promise<void>
+  addDocument: (doc: DocumentInfo, pages: PagePayload[]) => Promise<void>
+  removeDocument: (id: string) => Promise<void>
+  updateDocument: (id: string, updates: Partial<DocumentInfo>) => Promise<void>
+  updatePageFilters: (id: string, pageNumber: number, filters: any) => Promise<void>
+  updatePageImage: (id: string, pageNumber: number, imageDataUrl: string, width: number, height: number) => Promise<void>
   getDocument: (id: string) => DocumentInfo | undefined
-  updateStats: () => void
+  refreshStats: () => Promise<void>
+  clearError: () => void
+}
+
+/**
+ * Convert DocumentDto (từ server) -> DocumentInfo (cho client)
+ */
+function dtoToDocumentInfo(dto: DocumentDto): DocumentInfo {
+  // DocumentDto type: 'scan' | 'ocr' | 'pdf' (không bao gồm 'image')
+  const normalizedType: 'scan' | 'pdf' | 'ocr' = dto.type
+  return {
+    id: dto.id,
+    name: dto.name,
+    type: normalizedType,
+    pages: dto.pages.map(p => ({
+      id: `${dto.id}-${p.pageNumber}`,
+      pageNumber: p.pageNumber,
+      // QUAN TRỌNG: Không lưu base64 vào memory! Chỉ giữ imageUrl để fetch khi cần
+      originalImage: '', // empty - sẽ fetch qua API khi cần hiển thị
+      processedImage: '',
+      rotation: p.rotation,
+      filters: p.filters,
+      width: p.width,
+      height: p.height,
+    })),
+    pageCount: dto.pageCount,
+    size: dto.size,
+    createdAt: dto.createdAt,
+    updatedAt: dto.updatedAt,
+    // Lưu map pageNumber -> imageUrl để hiển thị
+    ...({ _imageUrls: dto.pages.reduce((acc: any, p) => {
+      acc[p.pageNumber] = documentsApi.getImageUrl(dto.id, p.pageNumber)
+      return acc
+    }, {}) } as any),
+  }
 }
 
 export const useDocumentStore = create<DocumentStore>()(
@@ -277,40 +319,159 @@ export const useDocumentStore = create<DocumentStore>()(
         pdfFiles: 0,
         ocrCount: 0,
       },
+      isLoading: false,
+      error: null,
 
-      addDocument: (doc) => {
-        set({ documents: [doc, ...get().documents] })
-        get().updateStats()
+      loadDocuments: async () => {
+        if (!isAuthenticated()) {
+          set({ documents: [], isLoading: false })
+          return
+        }
+
+        set({ isLoading: true, error: null })
+        try {
+          const { documents } = await documentsApi.list({ limit: 100 })
+          set({
+            documents: documents.map(dtoToDocumentInfo),
+            isLoading: false,
+          })
+          // Refresh stats song song
+          get().refreshStats()
+        } catch (err: any) {
+          set({
+            isLoading: false,
+            error: err.message || 'Không thể tải danh sách tài liệu.',
+          })
+        }
       },
 
-      removeDocument: (id) => {
-        set({ documents: get().documents.filter(d => d.id !== id) })
-        get().updateStats()
+      addDocument: async (doc, pages) => {
+        set({ error: null })
+        try {
+          // Normalize type: 'image' không có trong enum backend -> map về 'scan'
+          const safeType: 'scan' | 'ocr' | 'pdf' =
+            doc.type === 'image' ? 'scan' : (doc.type as 'scan' | 'ocr' | 'pdf')
+          const { document: createdDoc } = await documentsApi.create({
+            name: doc.name,
+            type: safeType,
+            description: '',
+            tags: [],
+            pages,
+          })
+
+          const info = dtoToDocumentInfo(createdDoc)
+          set({
+            documents: [info, ...get().documents],
+          })
+          get().refreshStats()
+        } catch (err: any) {
+          set({ error: err.message || 'Không thể lưu tài liệu.' })
+          throw err
+        }
       },
 
-      updateDocument: (id, updates) => {
+      removeDocument: async (id) => {
+        set({ error: null })
+        try {
+          await documentsApi.remove(id)
+          set({ documents: get().documents.filter(d => d.id !== id) })
+          get().refreshStats()
+        } catch (err: any) {
+          set({ error: err.message || 'Không thể xóa tài liệu.' })
+        }
+      },
+
+      updateDocument: async (id, updates) => {
+        // Update local first cho mượt
         set({
           documents: get().documents.map(d =>
-            d.id === id ? { ...d, ...updates, updatedAt: new Date().toISOString() } : d
+            d.id === id ? { ...d, ...updates } : d
           ),
         })
+        // Sync với server
+        try {
+          await documentsApi.update(id, {
+            name: updates.name,
+            description: updates.description,
+          })
+        } catch (err: any) {
+          set({ error: err.message || 'Không thể cập nhật.' })
+        }
+      },
+
+      updatePageFilters: async (id, pageNumber, filters) => {
+        try {
+          await documentsApi.update(id, {
+            pageUpdates: [{ pageNumber, filters }],
+          })
+          // Update local
+          set({
+            documents: get().documents.map(d => {
+              if (d.id !== id) return d
+              return {
+                ...d,
+                pages: d.pages.map(p =>
+                  p.pageNumber === pageNumber
+                    ? { ...p, filters: { ...p.filters, ...filters } }
+                    : p
+                ),
+              }
+            }),
+          })
+        } catch (err: any) {
+          set({ error: err.message || 'Không thể cập nhật.' })
+        }
+      },
+
+      updatePageImage: async (id, pageNumber, imageDataUrl, width, height) => {
+        try {
+          await documentsApi.updatePageImage(id, pageNumber, imageDataUrl, width, height)
+          // Update local metadata
+          set({
+            documents: get().documents.map(d => {
+              if (d.id !== id) return d
+              return {
+                ...d,
+                pages: d.pages.map(p =>
+                  p.pageNumber === pageNumber ? { ...p, width, height } : p
+                ),
+              }
+            }),
+          })
+        } catch (err: any) {
+          set({ error: err.message || 'Không thể cập nhật.' })
+        }
       },
 
       getDocument: (id) => get().documents.find(d => d.id === id),
 
-      updateStats: () => {
-        const { documents } = get()
-        set({
-          stats: {
-            totalDocuments: documents.length,
-            scannedDocuments: documents.filter(d => d.type === 'scan').length,
-            pdfFiles: documents.filter(d => d.type === 'pdf').length,
-            ocrCount: documents.filter(d => d.type === 'ocr').length,
-          },
-        })
+      refreshStats: async () => {
+        try {
+          const { stats } = await documentsApi.stats()
+          set({ stats })
+        } catch (err) {
+          // Silent - không ảnh hưởng UI
+        }
       },
+
+      clearError: () => set({ error: null }),
     }),
-    { name: 'scanpro-documents' },
+    {
+      // CHỈ persist UI preferences, KHÔNG lưu documents
+      name: 'scanpro-doc-cache',
+      partialize: (state) => ({
+        // Có thể cache metadata nhẹ để hiển thị ngay khi reload
+        documents: state.documents.map(d => ({
+          ...d,
+          pages: d.pages.map(p => ({
+            ...p,
+            // Không cacheảnh base64
+            originalImage: '',
+            processedImage: '',
+          })),
+        })),
+      }),
+    },
   ),
 )
 
