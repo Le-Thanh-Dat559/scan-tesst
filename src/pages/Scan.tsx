@@ -14,7 +14,8 @@ import {
   Camera, FileText, Trash2, Copy,
   ChevronLeft, ChevronRight, Settings,
   CheckCircle2, Undo, Redo, Sparkles,
-  Layers, Save, X
+  Layers, Save, X,
+  FileSignature, Tag, Hash
 } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import { cn } from '@/utils/helpers'
@@ -36,6 +37,12 @@ export default function ScanPage() {
   // Local state
   const [showCamera, setShowCamera] = useState(false)
   const [editingPageId, setEditingPageId] = useState<string | null>(null)
+
+  // Document metadata
+  const [docName, setDocName] = useState<string>('')
+  const [docTags, setDocTags] = useState<string>('')
+  const [docDescription, setDocDescription] = useState<string>('')
+  const [editingName, setEditingName] = useState(false)
 
   // Process uploaded files
   const handleFilesSelected = async (files: File[]) => {
@@ -114,13 +121,23 @@ export default function ScanPage() {
     showProcessing(`Đang upload ${pages.length} trang lên server...`)
 
     try {
+      // Parse tags: "hóa đơn, lương" -> ["hóa đơn", "lương"]
+      const parsedTags = docTags
+        .split(/[,;\n]/)
+        .map(t => t.replace(/^#+/, '').trim())
+        .filter(Boolean)
+
+      const finalName = docName.trim() || generateFileName('Scan', 'pdf').replace('.pdf', '')
+
       const doc: DocumentInfo = {
         id: generateId(),
-        name: generateFileName('Scan', 'pdf').replace('.pdf', ''),
+        name: finalName,
         type: 'scan',
         pages: [...pages],
         pageCount: pages.length,
         size: 0,
+        tags: parsedTags,
+        description: docDescription.trim(),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
@@ -142,6 +159,10 @@ export default function ScanPage() {
       })
 
       await addDocument(doc, pagesPayload)
+      // Reset metadata
+      setDocName('')
+      setDocTags('')
+      setDocDescription('')
       clearPages()
       toast({ type: 'success', title: 'Đã lưu', description: 'Tài liệu đã được lưu lên MongoDB.' })
       navigate('/documents')
@@ -155,11 +176,109 @@ export default function ScanPage() {
 
   // 1. EMPTY STATE
   if (pages.length === 0) {
+    const defaultName = generateFileName('Scan', 'pdf').replace('.pdf', '')
     return (
-      <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-16 flex flex-col items-center justify-center font-sans">
+      <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex flex-col items-center font-sans">
+
+        {/* 📝 ĐẶT TÊN TÀI LIỆU - Hiển thị NGAY từ đầu */}
+        <div className="w-full max-w-3xl mb-6 sm:mb-10">
+          <div className="rounded-2xl bg-[var(--bg-card)] border-2 border-dashed border-[var(--border-secondary)] hover:border-primary-500/50 transition-colors p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-2.5">
+              <div className="w-7 h-7 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
+                <FileSignature className="w-3.5 h-3.5 text-primary-500" />
+              </div>
+              <h2 className="text-sm sm:text-base font-bold text-[var(--text-primary)]">
+                Đặt tên tài liệu
+              </h2>
+              <span className="text-[11px] text-[var(--text-tertiary)] font-medium">
+                (tùy chọn - dùng để tìm kiếm sau này)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Name input */}
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                  <FileSignature className="w-3 h-3" /> Tên tài liệu
+                </label>
+                <div className="flex items-center gap-2 bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-xl pl-3 focus-within:border-primary-500 focus-within:ring-4 focus-within:ring-primary-500/10 transition-all">
+                  <input
+                    type="text"
+                    value={docName}
+                    onChange={e => setDocName(e.target.value)}
+                    placeholder={defaultName}
+                    maxLength={120}
+                    className="flex-1 min-w-0 bg-transparent py-2.5 text-sm font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none"
+                  />
+                  {docName && (
+                    <button
+                      onClick={() => setDocName('')}
+                      className="p-1.5 rounded-lg mr-1 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]"
+                      title="Xóa tên"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Tags input */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                  <Hash className="w-3 h-3" /> Tags <span className="text-[var(--text-tertiary)] font-medium normal-case tracking-normal">(phân cách bằng dấu phẩy)</span>
+                </label>
+                <input
+                  type="text"
+                  value={docTags}
+                  onChange={e => setDocTags(e.target.value)}
+                  placeholder="hóa đơn, điện, tháng 1"
+                  maxLength={200}
+                  className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10"
+                />
+                {docTags && (
+                  <div className="flex flex-wrap gap-1">
+                    {docTags
+                      .split(/[,;\n]/)
+                      .map(t => t.replace(/^#+/, '').trim())
+                      .filter(Boolean)
+                      .slice(0, 6)
+                      .map((t, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-500 text-[10px] font-bold border border-primary-500/20"
+                        >
+                          #{t}
+                        </span>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Description input */}
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                  <FileText className="w-3 h-3" /> Mô tả <span className="text-[var(--text-tertiary)] font-medium normal-case tracking-normal">(tuỳ chọn)</span>
+                </label>
+                <input
+                  type="text"
+                  value={docDescription}
+                  onChange={e => setDocDescription(e.target.value)}
+                  placeholder="Hóa đơn tiền điện căn hộ..."
+                  maxLength={500}
+                  className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-xl px-3 py-2.5 text-sm font-medium text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10"
+                />
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] text-[var(--text-tertiary)] font-medium flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3" />
+              Tên + tags sẽ giúp tìm kiếm tài liệu nhanh ở trang Thư viện.
+            </p>
+          </div>
+        </div>
 
         {/* Hero Section */}
-        <div className="text-center mb-8 sm:mb-14 max-w-2xl">
+        <div className="text-center mb-6 sm:mb-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-500 font-semibold text-[11px] mb-5 border border-primary-500/20">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-500 opacity-75" />
@@ -234,20 +353,43 @@ export default function ScanPage() {
 
   // 2. MULTI-PAGE WORKSPACE & EDITOR
   const currentPage = pages[currentPageIndex]
+  const displayDocName = docName.trim() || generateFileName('Scan', 'pdf').replace('.pdf', '')
 
   return (
     <div className="h-full flex flex-col min-h-0 bg-[var(--bg-primary)] font-sans select-none overflow-hidden">
 
       {/* Editor Sub-Header Toolbar */}
-      <div className="h-16 shrink-0 border-b border-[var(--border-secondary)] bg-[var(--bg-card)]/85 backdrop-blur-2xl flex items-center justify-between gap-4 px-4 sm:px-6 z-20">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[var(--text-primary)] bg-[var(--bg-tertiary)] px-3 py-1.5 rounded-xl border border-[var(--border-secondary)]">
+      <div className="h-16 shrink-0 border-b border-[var(--border-secondary)] bg-[var(--bg-card)]/85 backdrop-blur-2xl flex items-center justify-between gap-3 sm:gap-4 px-4 sm:px-6 z-20">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[var(--text-primary)] bg-[var(--bg-tertiary)] px-3 py-1.5 rounded-xl border border-[var(--border-secondary)] shrink-0">
             <Layers className="w-3.5 h-3.5 text-primary-500" />
-            Đang scan ({pages.length} trang)
+            <span className="hidden sm:inline">Đang scan</span>
+            <span className="text-primary-500">({pages.length})</span>
           </span>
 
+          {/* Tên tài liệu (đã nhập từ đầu) - click để sửa nhanh */}
+          <button
+            onClick={() => setEditingName(true)}
+            className="hidden md:flex items-center gap-2 min-w-0 flex-1 max-w-md bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] hover:border-primary-500/50 rounded-xl pl-3 pr-2 py-1 transition-colors group min-w-0"
+            title="Nhấn để sửa tên"
+          >
+            <FileSignature className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" />
+            <span className={cn(
+              "flex-1 min-w-0 truncate text-left text-xs sm:text-sm font-semibold",
+              docName.trim() ? "text-[var(--text-primary)]" : "text-[var(--text-tertiary)] italic"
+            )}>
+              {docName.trim() || displayDocName}
+            </span>
+            {(docTags || docDescription) && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary-500 px-1.5 py-0.5 rounded-md bg-primary-500/10 border border-primary-500/20 shrink-0">
+                <Tag className="w-2.5 h-2.5" />
+                {docTags.split(/[,;\n]/).filter(t => t.trim()).length || '✦'}
+              </span>
+            )}
+          </button>
+
           {/* Undo / Redo */}
-          <div className="flex items-center bg-[var(--bg-tertiary)] rounded-xl p-1 border border-[var(--border-secondary)]">
+          <div className="flex items-center bg-[var(--bg-tertiary)] rounded-xl p-1 border border-[var(--border-secondary)] shrink-0">
             <button
               onClick={undo}
               disabled={undoStack.length === 0}
@@ -269,6 +411,15 @@ export default function ScanPage() {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Nút sửa tên nhanh (mobile) */}
+          <button
+            onClick={() => setEditingName(true)}
+            className="md:hidden p-2 rounded-xl text-[var(--text-secondary)] hover:text-primary-500 hover:bg-primary-500/10 border border-[var(--border-secondary)]"
+            title="Sửa tên"
+          >
+            <FileSignature className="w-3.5 h-3.5" />
+          </button>
+
           <button
             onClick={() => clearPages()}
             className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[var(--text-secondary)] hover:text-error-500 hover:bg-error-500/10 transition-colors flex items-center gap-1.5"
@@ -285,6 +436,84 @@ export default function ScanPage() {
           </button>
         </div>
       </div>
+
+      {/* Modal sửa tên nhanh (chỉ hiện ở workspace) */}
+      {editingName && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setEditingName(false)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-secondary)] shadow-2xl p-5 w-full max-w-md"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
+                <FileSignature className="w-4 h-4 text-primary-500" />
+              </div>
+              <h3 className="text-base font-bold text-[var(--text-primary)]">Sửa tên tài liệu</h3>
+            </div>
+            <input
+              type="text"
+              value={docName}
+              onChange={e => setDocName(e.target.value)}
+              placeholder={displayDocName}
+              maxLength={120}
+              autoFocus
+              className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] rounded-xl px-3 py-2.5 text-sm font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10"
+            />
+            <div className="flex items-center justify-end gap-2 mt-4">
+              <button
+                onClick={() => setEditingName(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={() => setEditingName(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white gradient-primary"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick view: tags + description (chỉ hiện khi đã nhập) */}
+      {(docTags.trim() || docDescription.trim()) && (
+        <div className="shrink-0 border-b border-[var(--border-secondary)] bg-[var(--bg-card)]/60 backdrop-blur px-4 sm:px-6 py-2 flex items-center gap-2 flex-wrap">
+          <FileSignature className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" />
+          <span className="text-[11px] font-semibold text-[var(--text-tertiary)]">Đã thêm:</span>
+          {docTags
+            .split(/[,;\n]/)
+            .map(t => t.replace(/^#+/, '').trim())
+            .filter(Boolean)
+            .map((t, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-500 text-[10px] font-bold border border-primary-500/20"
+              >
+                #{t}
+              </span>
+            ))}
+          {docDescription.trim() && (
+            <span className="text-[11px] text-[var(--text-secondary)] font-medium truncate max-w-md" title={docDescription}>
+              {docDescription}
+            </span>
+          )}
+          <button
+            onClick={() => {
+              setDocTags('')
+              setDocDescription('')
+            }}
+            className="ml-auto p-1 rounded text-[var(--text-tertiary)] hover:text-error-500"
+            title="Xóa tags & mô tả"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       {/* Main Workspace Area */}
       <div className="flex-1 min-h-0 flex p-3 sm:p-5 lg:p-6 max-w-7xl mx-auto w-full gap-4 overflow-hidden">

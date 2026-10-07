@@ -293,6 +293,23 @@ html {
   animation: gradient-x 8s ease infinite;
 }
 
+/* Slide-down animation - for expandable panels */
+@keyframes slide-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+    max-height: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
+}
+.animate-slide-down {
+  animation: slide-down 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* ============================================
    UTILITIES
    ============================================ */

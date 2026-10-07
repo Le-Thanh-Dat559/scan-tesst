@@ -20,15 +20,18 @@ export default function DocumentsPage() {
   const { documents, removeDocument, loadDocuments } = useDocumentStore()
   const { showProcessing, hideProcessing } = useUIStore()
 
-  // Load documents từ MongoDB khi mount
-  useEffect(() => {
-    loadDocuments()
-  }, [loadDocuments])
-
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<'all' | 'scan' | 'ocr'>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  // Load documents từ MongoDB khi mount (debounce search query)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadDocuments(search)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [search, loadDocuments])
 
   // Cache thumbnail blob URLs cho mỗi document (page 1)
   const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({})
@@ -65,7 +68,11 @@ export default function DocumentsPage() {
   }, [])
 
   const filteredDocs = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(search.toLowerCase())
+    const q = search.toLowerCase().trim()
+    const matchesSearch = !q
+      || doc.name.toLowerCase().includes(q)
+      || (doc.description || '').toLowerCase().includes(q)
+      || (doc.tags || []).some(t => t.toLowerCase().includes(q))
     const matchesFilter = filterType === 'all' || doc.type === filterType
     return matchesSearch && matchesFilter
   })
@@ -302,6 +309,24 @@ export default function DocumentsPage() {
                   <h3 className="font-semibold text-xs sm:text-sm text-[var(--text-primary)] truncate mb-1.5" title={doc.name}>
                     {doc.name}
                   </h3>
+                  {doc.tags && doc.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      {doc.tags.slice(0, 3).map((tag, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-500 text-[10px] font-bold border border-primary-500/20 truncate max-w-[100px]"
+                          title={`#${tag}`}
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                      {doc.tags.length > 3 && (
+                        <span className="text-[10px] font-bold text-[var(--text-tertiary)] px-1">
+                          +{doc.tags.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-[11px] font-medium text-[var(--text-tertiary)]">
                     <span>{formatDate(doc.createdAt).split(',')[0]}</span>
                     <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)] font-semibold">
@@ -336,6 +361,29 @@ export default function DocumentsPage() {
                   <h3 className="font-semibold text-sm text-[var(--text-primary)] truncate group-hover:text-primary-500 transition-colors">
                     {doc.name}
                   </h3>
+                  {doc.tags && doc.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {doc.tags.slice(0, 4).map((tag, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-500 text-[10px] font-bold border border-primary-500/20 truncate max-w-[120px]"
+                          title={`#${tag}`}
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                      {doc.tags.length > 4 && (
+                        <span className="text-[10px] font-bold text-[var(--text-tertiary)] px-1">
+                          +{doc.tags.length - 4}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {doc.description && (
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1 line-clamp-1 font-medium">
+                      {doc.description}
+                    </p>
+                  )}
                   <div className="flex items-center gap-2 mt-1 text-[var(--text-tertiary)]">
                     <span className="text-xs font-medium">{formatDate(doc.createdAt)}</span>
                     <span className="w-1 h-1 bg-[var(--text-tertiary)] rounded-full" />

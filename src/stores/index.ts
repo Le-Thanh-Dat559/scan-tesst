@@ -267,7 +267,7 @@ interface DocumentStore {
   error: string | null
 
   // Actions
-  loadDocuments: () => Promise<void>
+  loadDocuments: (search?: string) => Promise<void>
   addDocument: (doc: DocumentInfo, pages: PagePayload[]) => Promise<void>
   removeDocument: (id: string) => Promise<void>
   updateDocument: (id: string, updates: Partial<DocumentInfo>) => Promise<void>
@@ -301,6 +301,8 @@ function dtoToDocumentInfo(dto: DocumentDto): DocumentInfo {
     })),
     pageCount: dto.pageCount,
     size: dto.size,
+    description: dto.description || '',
+    tags: dto.tags || [],
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
     // Lưu map pageNumber -> imageUrl để hiển thị
@@ -324,7 +326,7 @@ export const useDocumentStore = create<DocumentStore>()(
       isLoading: false,
       error: null,
 
-      loadDocuments: async () => {
+      loadDocuments: async (search?: string) => {
         if (!isAuthenticated()) {
           set({ documents: [], isLoading: false })
           return
@@ -332,7 +334,10 @@ export const useDocumentStore = create<DocumentStore>()(
 
         set({ isLoading: true, error: null })
         try {
-          const { documents } = await documentsApi.list({ limit: 100 })
+          const { documents } = await documentsApi.list({
+            limit: 100,
+            ...(search?.trim() ? { search: search.trim() } : {}),
+          })
           set({
             documents: documents.map(dtoToDocumentInfo),
             isLoading: false,
@@ -356,8 +361,8 @@ export const useDocumentStore = create<DocumentStore>()(
           const { document: createdDoc } = await documentsApi.create({
             name: doc.name,
             type: safeType,
-            description: '',
-            tags: [],
+            description: doc.description || '',
+            tags: doc.tags || [],
             pages,
           })
 

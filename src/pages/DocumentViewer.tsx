@@ -256,6 +256,28 @@ export default function DocumentViewerPage() {
                   </span>
                 </div>
               )}
+
+              {/* Tags + Description row */}
+              {((doc.tags && doc.tags.length > 0) || doc.description) && (
+                <div className="hidden md:flex items-center gap-2 mt-1.5 flex-wrap max-w-2xl">
+                  {doc.tags?.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-500 text-[10px] font-bold border border-primary-500/20"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                  {doc.description && (
+                    <span
+                      className="text-[11px] text-[var(--text-tertiary)] font-medium truncate max-w-md"
+                      title={doc.description}
+                    >
+                      {doc.description}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
