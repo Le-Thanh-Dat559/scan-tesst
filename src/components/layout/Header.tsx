@@ -115,9 +115,18 @@ export default function Header() {
             onClick={() => navigate('/settings')}
             className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-xl hover:bg-[var(--bg-tertiary)] transition-colors group"
           >
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center font-bold text-white text-xs shadow-sm ring-2 ring-[var(--bg-card)] shrink-0">
-              {user?.name?.[0]?.toUpperCase() || 'U'}
-            </div>
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-8 h-8 rounded-xl object-cover shadow-sm ring-2 ring-[var(--bg-card)] shrink-0"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center font-bold text-white text-xs shadow-sm ring-2 ring-[var(--bg-card)] shrink-0">
+                {user?.name?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
             <div className="hidden xl:block text-left min-w-0">
               <p className="text-xs font-semibold text-[var(--text-primary)] leading-tight truncate max-w-[120px]">
                 {user?.name || 'Người dùng'}

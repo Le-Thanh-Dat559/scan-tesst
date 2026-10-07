@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import authRoutes from './routes/auth'
+import googleAuthRoutes from './routes/googleAuth'
 import documentRoutes from './routes/documents'
 
 dotenv.config()
@@ -18,6 +19,7 @@ app.use(express.urlencoded({ limit: '100mb', extended: true }))
 
 // Routes
 app.use('/api/auth', authRoutes)
+app.use('/api/auth', googleAuthRoutes)
 app.use('/api/documents', documentRoutes)
 
 // Health check

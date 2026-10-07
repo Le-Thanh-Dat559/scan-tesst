@@ -18,6 +18,7 @@ import PdfTools from '@/pages/PdfTools'
 import Settings from '@/pages/Settings'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
+import GoogleCallback from '@/components/auth/GoogleCallback'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Dùng isAuthenticated từ api.ts (kiểm tra token trong localStorage)
@@ -49,6 +50,9 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Route>
+
+          {/* OAuth Callback - không cần auth, cũng không cần layout */}
+          <Route path="/auth/callback" element={<GoogleCallback />} />
 
           {/* Protected Main Routes */}
           <Route 

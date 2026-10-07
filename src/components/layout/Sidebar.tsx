@@ -165,9 +165,18 @@ export default function Sidebar() {
             'flex items-center gap-2.5 p-2 rounded-xl bg-[var(--bg-tertiary)] border border-[var(--border-secondary)] hover:border-primary-500/30 transition-colors group',
             sidebarCollapsed && 'justify-center p-2'
           )}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm">
-              {user?.name?.[0]?.toUpperCase() || 'U'}
-            </div>
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-8 h-8 rounded-lg object-cover shrink-0 shadow-sm border border-[var(--border-secondary)]"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm">
+                {user?.name?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
             {!sidebarCollapsed && (
               <>
                 <div className="flex-1 min-w-0">

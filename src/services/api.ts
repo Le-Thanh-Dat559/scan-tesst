@@ -20,6 +20,11 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY)
 }
 
+/** Set raw token (giống setToken nhưng đặt tên rõ ràng cho OAuth callback) */
+export function setTokenRaw(token: string) {
+  setToken(token)
+}
+
 // ============== Fetch Wrapper ==============
 interface ApiOptions extends RequestInit {
   /** Skip auth header (for public endpoints) */

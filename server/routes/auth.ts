@@ -38,7 +38,9 @@ router.post('/register', async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        phone: user.phone
+        phone: user.phone,
+        avatar: user.avatar,
+        authProvider: user.authProvider || 'local',
       }
     })
   } catch (error) {
@@ -72,7 +74,9 @@ router.post('/login', async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        phone: user.phone
+        phone: user.phone,
+        avatar: user.avatar,
+        authProvider: user.authProvider || 'local',
       }
     })
   } catch (error) {
