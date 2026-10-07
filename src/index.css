@@ -1,18 +1,22 @@
 @import "tailwindcss";
 
+/* Use class-based dark mode (controlled via .dark/.light on <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
+
 @theme {
-  /* Modern color tokens - slate/blue palette */
-  --color-bg-primary: #0a0e1a;
-  --color-bg-secondary: #111827;
-  --color-bg-tertiary: #1a2233;
-  --color-bg-card: #131a2a;
+  /* Default = LIGHT mode tokens (Tailwind theme reference) */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f8fafc;
+  --color-bg-tertiary: #f1f5f9;
+  --color-bg-card: #ffffff;
 
-  --color-text-primary: #f1f5f9;
-  --color-text-secondary: #94a3b8;
-  --color-text-tertiary: #64748b;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-tertiary: #94a3b8;
 
-  --color-border-primary: #1e293b;
-  --color-border-secondary: #2a3548;
+  --color-border-primary: #e2e8f0;
+  --color-border-secondary: #cbd5e1;
 
   /* Single accent - modern blue */
   --color-primary-50: #eff6ff;
@@ -30,6 +34,49 @@
   --color-error-500: #ef4444;
   --color-info-500: #06b6d4;
   --color-accent-500: #3b82f6;
+}
+
+/* ============================================
+   THEME TOKENS - LIGHT & DARK
+   ============================================ */
+:root,
+:root.light {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --bg-card: #ffffff;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+
+  --border-primary: #e2e8f0;
+  --border-secondary: #cbd5e1;
+}
+
+:root.dark {
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #111827;
+  --bg-tertiary: #1a2233;
+  --bg-card: #131a2a;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+
+  --border-primary: #1e293b;
+  --border-secondary: #2a3548;
+}
+
+/* Smooth transition when theme changes */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
 }
 
 /* ============================================

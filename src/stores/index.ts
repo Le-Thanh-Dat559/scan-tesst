@@ -59,7 +59,11 @@ export const useThemeStore = create<ThemeStore>()(
 )
 
 function applyTheme(theme: 'light' | 'dark') {
-  document.documentElement.classList.toggle('dark', theme === 'dark')
+  const root = document.documentElement
+  root.classList.remove('light', 'dark')
+  root.classList.add(theme)
+  // Also set color-scheme for native form controls
+  root.style.colorScheme = theme
 }
 
 /* ===== Auth Store ===== */
